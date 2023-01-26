@@ -1,0 +1,106 @@
+# based on: https://github.com/athom-tech/athom-configs/blob/main/athom-smart-plug-v2.yaml
+
+substitutions:
+  static_ip: 10.10.0.120
+  device_name: "smart-plug-a"
+  friendly_name: "Smart Plug A"
+  relay_restore_mode: RESTORE_DEFAULT_OFF
+
+esphome:
+  name: "${device_name}"
+
+esp8266:
+  board: esp8285
+  restore_from_flash: true
+
+preferences:
+  flash_write_interval: 1min
+
+<<: !include common/base.yaml
+<<: !include common/main.yaml
+
+uart:
+  rx_pin: RX
+  baud_rate: 4800
+
+time:
+  - platform: sntp
+    id: my_time
+
+binary_sensor:
+  - platform: status
+    name: "${friendly_name} - Status"
+
+  - platform: gpio
+    pin:
+      number: 5
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "${friendly_name} - Przycisk"
+    device_class: running
+    disabled_by_default: true
+    on_multi_click:
+      - timing:
+          - ON for at most 1s
+          - OFF for at least 0.2s
+        then:
+          - switch.toggle: relay
+      - timing:
+          - ON for at least 4s
+        then:
+          - switch.turn_on: restart_switch
+
+sensor:
+  - platform: uptime
+    name: "${friendly_name} - Czas pracy"
+
+  - platform: cse7766
+    update_interval: 10s
+    current:
+      name: "${friendly_name} - Natężenie prądu"
+      #filters:
+      #    - lambda: if (x < 0.060) return 0.0; else return x;   #For the chip will report less than 3w power when no load is connected
+
+    voltage:
+      name: "${friendly_name} - Napięcie prądu"
+    power:
+      name: "${friendly_name} - Pobór prądu"
+      id: power_sensor
+      #filters:
+      #    - lambda: if (x < 3.0) return 0.0; else return x;    #For the chip will report less than 3w power when no load is connected
+
+    energy:
+      name: "${friendly_name} - Zużycie prądu"
+      unit_of_measurement: kWh
+      filters:
+        # Multiplication factor from W to kW is 0.001
+        - multiply: 0.001
+
+  - platform: total_daily_energy
+    name: "${friendly_name} - Dzienne zużycie prądu"
+    restore: true
+    power_id: power_sensor
+    unit_of_measurement: kWh
+    accuracy_decimals: 3
+    filters:
+      - multiply: 0.001
+
+switch:
+  - platform: gpio
+    name: "${friendly_name} - Przełącznik"
+    pin: GPIO12
+    id: relay
+    device_class: outlet
+    restore_mode: ${relay_restore_mode}
+  - platform: restart
+    id: restart_switch
+    name: "${friendly_name} - Restart"
+
+light:
+  - platform: status_led
+    name: "${friendly_name} - Dioda statusu"
+    id: blue_led
+    disabled_by_default: true
+    pin:
+      inverted: true
+      number: GPIO13

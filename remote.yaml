@@ -1,0 +1,155 @@
+substitutions:
+  static_ip: 10.10.0.109
+  friendly_name: "Pilot"
+
+esphome:
+  name: remote
+  platform: ESP32
+  board: lolin32_lite
+
+  on_shutdown:
+    then:
+      lambda: |-
+        id(main_display).turn_off();
+
+<<: !include common/base.yaml
+
+deep_sleep:
+  id: main_deep_sleep
+  run_duration:
+    default: 3s
+    gpio_wakeup_reason: 60s
+  sleep_duration: 5min
+  wakeup_pin:
+    number: GPIO12
+  wakeup_pin_mode: INVERT_WAKEUP
+#  esp32_ext1_wakeup:
+#    mode: ALL_LOW
+#    pins:
+#      - GPIO27
+#      - GPIO14
+
+mqtt:
+  id: mqtt_client
+  broker: 10.10.0.103
+  discovery: true
+  topic_prefix: remote
+  birth_message:
+    topic: remote/availability
+    payload: ""
+  will_message:
+    topic: remote/availability
+    payload: ""
+
+i2c:
+  sda: GPIO23
+  scl: GPIO19
+  scan: false
+
+script:
+  - id: menu_action
+    then:
+      - lambda: |-
+          auto active_page = id(main_display).get_active_page();
+          if (active_page == id(page_play_rmf24))
+            id(mqtt_client).publish("hass/script/rmf24", "");
+          if (active_page == id(page_play_rmffm))
+            id(mqtt_client).publish("hass/script/rmffm", "");
+          if (active_page == id(page_play_rmfmaxx))
+            id(mqtt_client).publish("hass/script/rmfmaxx", "");
+          if (active_page == id(page_stop_player))
+            id(mqtt_client).publish("hass/script/stop_player", "");
+          if (active_page == id(page_alarm_off))
+            id(mqtt_client).publish("hass/script/alarm_off", "");
+
+display:
+  - platform: ssd1306_i2c
+    id: main_display
+    model: "SSD1306 128x32"
+    address: 0x3C
+    update_interval: 5s
+    pages:
+      - id: page_play_rmf24
+        lambda: |-
+          if (esp_sleep_get_wakeup_cause() != 4) {
+            it.print(0, 6, id(main_font), "Play RMF24");
+          }
+      - id: page_play_rmffm
+        lambda: it.print(0, 6, id(main_font), "Play RMF FM");
+      - id: page_play_rmfmaxx
+        lambda: it.print(0, 6, id(main_font), "Play RMF MAXX");
+      - id: page_stop_player
+        lambda: it.print(0, 6, id(main_font), "Stop player");
+      - id: page_alarm_off
+        lambda: it.print(0, 6, id(main_font), "Turn alarm off");
+      - id: page_temperature
+        lambda: it.printf(0, 6, id(main_font), "Temp %.2f °C", id(temperature).state);
+      #- id: page_pressure
+      #  lambda: it.printf(0, 6, id(main_font), "Press %.0f hPa", id(pressure).state);
+      - id: page_battery
+        lambda: it.printf(0, 6, id(main_font), "Battery %.2f V", id(battery).state);
+
+font:
+  - file: "fonts/Lato-Regular.ttf"
+    id: main_font
+    size: 16
+
+binary_sensor:
+  - platform: gpio
+    id: click
+    internal: true
+    pin:
+      number: GPIO12
+      inverted: true
+      mode: INPUT_PULLUP
+    filters:
+      - delayed_on: 10ms
+      - delayed_off: 10ms
+    on_press:
+       - script.execute: menu_action
+
+sensor:
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+    update_interval: 60s
+
+  - platform: adc
+    id: battery
+    name: "${friendly_name} - Bateria"
+    pin: GPIO32
+    attenuation: 6db
+    update_interval: 5s
+    accuracy_decimals: 2
+    filters:
+      - multiply: 3.172
+      - sliding_window_moving_average:
+          window_size: 12
+          send_every: 12
+
+  - platform: rotary_encoder
+    id: rotary
+    internal: true
+    pin_a:
+      number: GPIO27
+      mode: INPUT_PULLUP
+    pin_b:
+      number: GPIO14
+      mode: INPUT_PULLUP
+    resolution: 2
+    on_anticlockwise:
+      - display.page.show_next: main_display
+      - component.update: main_display
+    on_clockwise:
+      - display.page.show_previous: main_display
+      - component.update: main_display
+
+  - platform: bmp280
+    address: 0x76
+    temperature:
+      id: "temperature"
+      name: "${friendly_name} - Temperatura"
+    #pressure:
+    #  id: "pressure"
+    #  name: "${friendly_name} - Ciśnienie"
+    #  oversampling: 1x
+    update_interval: 60s

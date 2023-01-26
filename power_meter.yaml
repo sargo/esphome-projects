@@ -1,0 +1,56 @@
+substitutions:
+  static_ip: 10.10.0.112
+  friendly_name: "Licznik prądu"
+  
+esphome:
+  name: power-meter
+  platform: ESP8266
+  board: d1_mini
+  esp8266_restore_from_flash: true
+
+<<: !include common/base.yaml
+<<: !include common/main.yaml
+
+globals:
+  - id: power_consumption_total
+    type: float
+    restore_value: true
+    initial_value: "2443.83"
+
+sensor:
+  - platform: uptime
+    name: "${friendly_name} - Czas pracy"
+    id: uptime_sensor
+    update_interval: 60s
+
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+    update_interval: 60s
+
+  - platform: pulse_counter
+    pin:
+      number: D4
+      mode: INPUT_PULLUP
+      inverted: True
+    unit_of_measurement: 'kW'
+    accuracy_decimals: 2
+    name: 'Dom - Pobór prądu'
+    internal_filter: 25ms
+    device_class: "energy"
+    state_class: "measurement"
+    filters:
+      # (60s/1000 pulses per kWh)
+      - lambda: |-
+          id(power_consumption_total) += x * 0.001;
+          return x * 0.06;
+
+    total:
+      unit_of_measurement: 'kWh'
+      accuracy_decimals: 3
+      name: 'Dom - Zużycie prądu'
+      device_class: "energy"
+      state_class: "total_increasing"
+      filters:
+        # (1/1000 pulses per kWh)
+        - lambda: |-
+            return id(power_consumption_total);

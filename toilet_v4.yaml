@@ -1,0 +1,219 @@
+substitutions:
+  static_ip: 10.10.0.113
+  friendly_name: "Toaleta"
+
+esphome:
+  name: toilet
+  platform: ESP8266
+  board: d1_mini
+  esp8266_restore_from_flash: true
+
+<<: !include common/base.yaml
+<<: !include common/main.yaml
+
+time:
+  - platform: sntp
+    timezone: "Europe/Warsaw"
+    id: sntp_time
+
+globals:
+  - id: spray_delay
+    type: int
+    restore_value: true
+    initial_value: "350"
+  - id: spray_counter
+    type: int
+    restore_value: true
+    initial_value: "0"
+
+i2c:
+  sda: D2
+  scl: D1
+  scan: false
+
+sensor:
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+
+  - platform: htu21d
+    address: 0x40
+    temperature:
+      id: "temperature"
+      name: "${friendly_name} - Temperatura"
+
+    humidity:
+      id: "humidity"
+      name: "${friendly_name} - Wilgotność"
+    update_interval: 60s
+
+  - platform: adc
+    id: ldr_voltage
+    pin: A0
+    update_interval: 5s
+    filters:
+      - multiply: 3.29
+    internal: true
+
+  - platform: resistance
+    id: ldr_resistance
+    sensor: ldr_voltage
+    configuration: DOWNSTREAM
+    resistor: 10kOhm
+    internal: true
+
+  - platform: template
+    name: "${friendly_name} - Natężenie światła"
+    id: ldr_lux
+    icon: "mdi:brightness-7"
+    unit_of_measurement: lx
+    update_interval: 5s
+    lambda: |-
+      const float slope = -0.85;
+      const float intercept = 5;
+      float resistance = id(ldr_resistance).state;
+
+      if (resistance < 10.0)
+        resistance = 10.0;
+
+      float ret = pow(10, intercept) * pow(resistance, slope);
+      ESP_LOGD("ldr lux", "LDR voltage=%.3fV, resistance=%.1fkOhm, Light=%.2flx", id(ldr_voltage).state, id(ldr_resistance).state / 1000.0, ret);
+      return ret;
+
+  - platform: template
+    name: "${friendly_name} - Psiknięcia"
+    id: spray_count
+    lambda: |-
+      return id(spray_counter);
+    state_class: total_increasing
+    icon: mdi:chart-line
+    accuracy_decimals: 0
+    update_interval: 60s
+
+light:
+  - platform: binary
+    name: "${friendly_name} - LED"
+    id: led_light
+    output: led_output
+
+output:
+  - platform: esp8266_pwm
+    pin: D5
+    frequency: 1000 Hz
+    id: motor_enable
+  - platform: esp8266_pwm
+    pin: D7
+    id: motor_forward_pin
+    inverted: true
+  - platform: esp8266_pwm
+    pin: D8
+    id: motor_reverse_pin
+    inverted: true
+  - id: led_output
+    platform: gpio
+    pin: D3
+
+fan:
+  - platform: hbridge
+    id: spray_motor
+    name: "${friendly_name} - Motor"
+    pin_a: motor_forward_pin
+    pin_b: motor_reverse_pin
+    enable_pin: motor_enable
+    decay_mode: fast
+    speed_count: 1
+    restore_mode: ALWAYS_OFF
+    disabled_by_default: true
+
+select:
+  - platform: template
+    name: "${friendly_name} - Intensywność"
+    id: spray_level
+    icon: mdi:scent
+    optimistic: true
+    restore_value: true
+    options:
+      - "3"
+      - "2"
+      - "1"
+    initial_option: "2"
+    on_value:
+      then:
+        - lambda: !lambda |-
+            if (x == "3") {
+              id(spray_delay) = 500;
+            } else if (x == "2") {
+              id(spray_delay) = 350;
+            } else {
+              id(spray_delay) = 200;
+            }
+            ESP_LOGW("spray level", "Spray delay %dms", id(spray_delay));
+
+script:
+  - id: spray_script
+    mode: single
+    then:
+      - lambda: |-
+          id(spray_counter) += 1;
+      - sensor.template.publish:
+          id: spray_count
+          state: !lambda 'return id(spray_counter);'
+      - light.turn_off: led_light
+      - fan.turn_on:
+          id: spray_motor
+          direction: reverse
+      - delay: !lambda return (id(spray_delay));
+      - fan.turn_on:
+          id: spray_motor
+          direction: forward
+      - delay: !lambda return (id(spray_delay));
+      - fan.turn_off: spray_motor
+
+button:
+  - platform: template
+    id: spray_button
+    name: "${friendly_name} - Psiknięcie"
+    icon: mdi:spray
+    on_press:
+      then:
+        - script.execute: spray_script
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: D6
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "${friendly_name} - Przycisk"
+    device_class: running
+    filters:
+      - delayed_on: 50ms
+      - delayed_off: 50ms
+    on_press:
+      then:
+        - script.execute: spray_script
+    on_click:
+      min_length: 1000ms
+      max_length: 3000ms
+      then:
+        - lambda: |-
+            id(spray_counter) = 0;
+
+  - platform: analog_threshold
+    name: "${friendly_name} - Światło"
+    device_class: light
+    sensor_id: ldr_lux
+    threshold: 40
+    on_multi_click:
+    - timing:
+        - ON for at least 3min
+      then:
+         - light.turn_on: led_light
+    - timing:
+        - OFF for at least 10s
+      then:
+        - if:
+            condition:
+              light.is_on: led_light
+            then:
+              - light.turn_off: led_light
+              - script.execute: spray_script

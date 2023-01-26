@@ -1,0 +1,45 @@
+substitutions:
+  static_ip: 10.10.0.111
+  friendly_name: "Sypialnia"
+
+esphome:
+  name: bedroom
+  platform: ESP8266
+  board: d1_mini
+
+<<: !include common/base.yaml
+<<: !include common/main.yaml
+
+dallas:
+  - pin: D4
+
+sensor:
+  - platform: dallas
+    index: 0
+    id: "temperature"
+    name: "${friendly_name} - Temperatura"
+
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+    update_interval: 60s
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: D2
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "${friendly_name} - Przycisk"
+    device_class: power
+
+output:
+  - platform: esp8266_pwm
+    pin: D3
+    frequency: 1000 Hz
+    id: pwm_output
+
+light:
+  - platform: monochromatic
+    id: signal_led
+    output: pwm_output
+    name: "${friendly_name} - LED"

@@ -1,0 +1,52 @@
+substitutions:
+  static_ip: 10.10.0.108
+  friendly_name: "Gabinet"
+
+esphome:
+  name: office-room
+  platform: ESP8266
+  board: d1_mini
+
+<<: !include common/base.yaml
+<<: !include common/main.yaml
+
+dallas:
+  - pin: D4
+
+sensor:
+  - platform: uptime
+    name: "${friendly_name} - Czas pracy"
+    id: uptime_sensor
+    update_interval: 60s
+
+  - platform: dallas
+    index: 0
+    id: "temperature"
+    name: "${friendly_name} - Temperatura"
+    device_class: "temperature"
+    state_class: "measurement"
+
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+    update_interval: 60s
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: D2
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "${friendly_name} - Przycisk"
+    device_class: running
+
+output:
+  - platform: gpio
+    id: led_output
+    pin: D3
+
+light:
+  - platform: binary
+    id: signal_led
+    output: led_output
+    name: "${friendly_name} - LED"
+    restore_mode: ALWAYS_OFF

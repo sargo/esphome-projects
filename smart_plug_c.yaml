@@ -1,0 +1,44 @@
+substitutions:
+  static_ip: 10.10.0.119
+  friendly_name: "Smart Plug C"
+
+esphome:
+  name: smart-plug-c
+  platform: ESP8266
+  board: esp01_1m
+  board_flash_mode: dout
+
+<<: !include common/base.yaml
+<<: !include common/main.yaml
+
+status_led:
+  pin:
+    number: GPIO13
+    inverted: false
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO0
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "${friendly_name} - Przycisk"
+    device_class: running
+    on_press:
+      - switch.toggle: relay
+  - platform: status
+    name: "${friendly_name} - Status"
+
+sensor:
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+    update_interval: 60s
+
+switch:
+  - platform: gpio
+    name: "${friendly_name} - Przełącznik"
+    pin: GPIO12
+    id: "relay"
+    device_class: outlet
+  - platform: restart
+    name: "${friendly_name} - Restart"

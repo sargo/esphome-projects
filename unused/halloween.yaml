@@ -1,0 +1,110 @@
+substitutions:
+  static_ip: 10.10.0.117
+  friendly_name: "Halloween"
+
+esphome:
+  name: halloween
+  platform: ESP8266
+  board: d1_mini
+
+  on_boot:
+    priority: 600
+    then:
+        - delay: 5s
+        - dfplayer.set_volume: 30
+        - delay: 100ms
+        - dfplayer.play:
+            file: 1
+            loop: true
+
+<<: !include common/base.yaml
+
+web_server:
+  port: 80
+
+uart:
+  tx_pin: D2
+  rx_pin: D5
+  baud_rate: 9600
+  debug:
+
+dfplayer:
+  on_finished_playback:
+    then:
+      logger.log: 'Finished playback'
+
+
+binary_sensor:
+  - platform: gpio
+    pin: D4
+    name: "${friendly_name} - Move"
+    device_class: motion
+    on_press:
+      then:
+        - if:
+            condition:
+              light.is_off: led_light
+            then:
+              - dfplayer.stop
+              - delay: 100ms
+              - dfplayer.play:
+                  file: 2
+                  loop: false
+              - delay: 1s
+              - light.turn_on:
+                  id: led_light
+                  effect: pulse
+              - servo.write:
+                  id: trigger
+                  level: -90.0%
+              - delay: 6s
+              - servo.write:
+                  id: trigger
+                  level: 90.0%
+              - light.turn_on:
+                  id: led_light
+                  brightness: 50%
+                  effect: none
+              - dfplayer.play:
+                  file: 1
+                  loop: true
+              - delay: 120s
+              - light.turn_off: led_light
+            else:
+              - logger.log: 'in cooldown'
+
+sensor:
+  - platform: uptime
+    name: "${friendly_name} - Uptime"
+    id: uptime_sensor
+    update_interval: 60s
+
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+    update_interval: 60s
+
+servo:
+  - id: trigger
+    output: servo_output
+
+light:
+  - platform: monochromatic
+    name: "${friendly_name} - Light"
+    id: led_light
+    output: led_output
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 0s
+    effects:
+      - pulse:
+          name: pulse
+          transition_length: 0.5s
+          update_interval: 0.5s
+
+output:
+  - platform: esp8266_pwm
+    id: led_output
+    pin: D3
+  - platform: esp8266_pwm
+    id: servo_output
+    pin: D8
+    frequency: 50 Hz

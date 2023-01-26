@@ -1,0 +1,133 @@
+substitutions:
+  static_ip: 10.10.0.111
+  friendly_name: "Sypialnia"
+
+<<: !include common/base.yaml
+
+api:
+  reboot_timeout: 12h
+
+web_server:
+  port: 80
+
+dallas:
+  - pin: D1
+
+sensor:
+  - platform: uptime
+    name: "${friendly_name} - Czas pracy"
+    id: uptime_sensor
+    update_interval: 60s
+
+  - platform: dallas
+    index: 0
+    id: "temperature"
+    name: "${friendly_name} - Temperatura"
+    device_class: "temperature"
+    state_class: "measurement"
+
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+    update_interval: 60s
+
+light:
+  - platform: rgb
+    id: rgb_strip
+    name: "${friendly_name} - RGB"
+    red: led_green_output
+    green: led_blue_output
+    blue: led_red_output
+    restore_mode: RESTORE_DEFAULT_OFF
+
+output:
+  - platform: esp8266_pwm
+    id: led_red_output
+    pin: D2
+
+  - platform: esp8266_pwm
+    id: led_green_output
+    pin: D3
+
+  - platform: esp8266_pwm
+    id: led_blue_output
+    pin: D4
+
+select:
+  - platform: template
+    name: "${friendly_name} - Kolor"
+    id: color
+    optimistic: true
+    restore_value: true
+    options:
+      - "Red"
+      - "Orange"
+      - "Yellow"
+      - "Green Yellow"
+      - "Green"
+      - "Green Cyan"
+      - "Cyan"
+      - "Blue Cyan"
+      - "Blue"
+      - "Blue Magenta"
+      - "Magenta"
+      - "Red Magenta"
+      - "White"
+      - "Gray"
+    initial_option: "Gray"
+    on_value:
+      then:
+        - lambda: !lambda |-
+            auto call = id(rgb_strip).turn_on(); 
+            call.set_brightness(1);
+            if (x == "Red") {
+              call.set_rgb(1,0,0);
+            } else if (x == "Orange") {
+              call.set_rgb(1,0.5,0);
+            } else if (x == "Yellow") {
+              call.set_rgb(1,1,0);
+            } else if (x == "Green Yellow") {
+              call.set_rgb(0.5,1,0);
+            } else if (x == "Green") {
+              call.set_rgb(0,1,0);
+            } else if (x == "Green Cyan") {
+              call.set_rgb(0,1,0.5);
+            } else if (x == "Cyan") {
+              call.set_rgb(0,1,1);
+            } else if (x == "Blue Cyan") {
+              call.set_rgb(0,0.5,1);
+            } else if (x == "Blue") {
+              call.set_rgb(0,0,1);
+            } else if (x == "Blue Magenta") {
+              call.set_rgb(0.5,0,1);
+            } else if (x == "Magenta") {
+              call.set_rgb(1,0,1);
+            } else if (x == "Red Magenta") {
+              call.set_rgb(1,0,0.5);
+            } else if (x == "Gray") {
+              call.set_rgb(1,1,1);
+              call.set_brightness(0.5);
+            } else {
+              call.set_rgb(1,1,1);
+            }
+            call.perform();
+    
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: D6
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "${friendly_name} - Przycisk"
+    device_class: power
+    filters:
+      - delayed_on: 10ms
+
+    on_multi_click:
+    - timing:
+        - ON for at least 1s
+      then:
+         - light.toggle: rgb_strip
+    - timing:
+        - ON for 50ms to 500ms
+      then:
+        - select.next: color

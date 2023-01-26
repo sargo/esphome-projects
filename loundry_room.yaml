@@ -1,0 +1,92 @@
+substitutions:
+  static_ip: 10.10.0.118
+  friendly_name: "Pralnia"
+
+esphome:
+  name: laundry-room
+  platform: ESP8266
+  board: d1_mini
+
+<<: !include common/base.yaml
+<<: !include common/main.yaml
+
+time:
+  - platform: sntp
+    timezone: "Europe/Warsaw"
+    id: sntp_time
+    on_time:
+      - seconds: 0
+        minutes: 0
+        hours: 3
+        then:
+          if:
+            condition:
+              binary_sensor.is_off: door_reed_switch
+            then:
+              - switch.turn_on: armed_switch
+            else:
+              - logger.log: "Doors are open, not arming"
+
+globals:
+  - id: armed
+    type: bool
+    restore_value: true
+    initial_value: 'false'
+
+dallas:
+  - pin: D7
+
+switch:
+  - platform: template
+    name: "${friendly_name} - Alarm uzbrojony"
+    id: armed_switch
+    icon: mdi:lock-alert
+    restore_state: false
+    turn_on_action:
+      - globals.set:
+          id: armed
+          value: 'true'
+    turn_off_action:
+      - globals.set:
+          id: armed
+          value: 'false'
+      - switch.turn_off: buzzer
+      - logger.log: 'buzzer OFF'
+    lambda: |-
+      return id(armed);
+  - platform: gpio
+    pin: D2
+    id: buzzer
+    icon: mdi:alarm-bell
+    name: "${friendly_name} - Syrena"
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: D1
+      mode: INPUT_PULLUP
+      inverted: false
+    name: "${friendly_name} - Drzwi"
+    id: door_reed_switch
+    device_class: door
+    filters:
+      - delayed_on: 10ms
+      - delayed_off: 10ms
+    on_press:
+      if:
+        condition:
+          switch.is_on: armed_switch
+        then:
+          - switch.turn_on: buzzer
+          - logger.log: 'buzzer ON'
+
+sensor:
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+    update_interval: 60s
+  - platform: dallas
+    index: 0
+    id: "temperature"
+    name: "${friendly_name} - Temperatura"
+    device_class: "temperature"
+    state_class: "measurement"

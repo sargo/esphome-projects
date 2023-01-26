@@ -1,0 +1,64 @@
+substitutions:
+  static_ip: 10.10.0.113
+  friendly_name: "Toaleta"
+
+esphome:
+  name: toilet
+  platform: ESP8266
+  board: d1_mini
+  
+  on_boot:
+    priority: 600
+    then:
+      - output.turn_on: status_switch
+      - lambda: delay(1000);
+
+  on_shutdown:
+    then:
+      - output.turn_off: status_switch
+
+<<: !include common/base.yaml
+
+deep_sleep:
+  id: main_deep_sleep
+  run_duration: 5s
+  sleep_duration: 60s
+
+mqtt:
+  broker: 10.10.0.103
+  discovery: true
+  topic_prefix: toilet
+  birth_message:
+    topic: toilet/availability
+    payload: ""
+  will_message:
+    topic: toilet/availability
+    payload: ""
+  on_message:
+    - topic: toilet/ota_mode
+      payload: "ON"
+      then:
+        - deep_sleep.prevent: main_deep_sleep
+    - topic: toilet/ota_mode
+      payload: "OFF"
+      then:
+        - deep_sleep.enter: main_deep_sleep
+
+sensor:
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+
+  - platform: dht
+    model: DHT11
+    pin: D4
+    temperature:
+      id: "temperature"
+      name: "${friendly_name} - Temperatura"
+    humidity:
+      id: "humidity"
+      name: "${friendly_name} - Wilgotność"
+
+output:
+  - platform: gpio
+    id: status_switch
+    pin: D1

@@ -1,0 +1,65 @@
+substitutions:
+  static_ip: 10.10.0.109
+  friendly_name: "Na zewnątrz"
+
+esphome:
+  name: outside
+  platform: ESP32
+  board: lolin32_lite
+
+<<: !include common/base.yaml
+
+i2c:
+  sda: GPIO23
+  scl: GPIO19
+  scan: false
+
+deep_sleep:
+  id: main_deep_sleep
+  run_duration: 3s
+  sleep_duration: 15min
+
+mqtt:
+  broker: 10.10.0.103
+  discovery: true
+  topic_prefix: outside
+  birth_message:
+    topic: outside/availability
+    payload: ""
+  will_message:
+    topic: outside/availability
+    payload: ""
+  on_message:
+    - topic: outside/ota_mode
+      payload: "ON"
+      then:
+        - deep_sleep.prevent: main_deep_sleep
+    - topic: outside/ota_mode
+      payload: "OFF"
+      then:
+        - deep_sleep.enter: main_deep_sleep
+
+sensor:
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+    update_interval: 2s
+
+  - platform: adc
+    name: "${friendly_name} - Bateria"
+    pin: GPIO32
+    attenuation: 6db
+    update_interval: 250ms
+    accuracy_decimals: 2
+    filters:
+      - multiply: 3.172
+      - throttle_average: 2s
+
+  - platform: bmp280
+    address: 0x76
+    temperature:
+      id: "temperature"
+      name: "${friendly_name} - Temperatura"
+    pressure:
+      id: "pressure"
+      name: "${friendly_name} - Ciśnienie"
+    update_interval: 2s

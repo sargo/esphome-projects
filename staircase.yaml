@@ -1,0 +1,97 @@
+substitutions:
+  static_ip: 10.10.0.105
+  friendly_name: "Wejście"
+  
+esphome:
+  name: staircase
+  platform: ESP32
+  board: esp32cam
+
+<<: !include common/base.yaml
+<<: !include common/main.yaml
+
+dallas:
+  - pin: GPIO1
+
+sensor:
+  - platform: uptime
+    name: "${friendly_name} - Czas pracy"
+    id: uptime_sensor
+    update_interval: 60s
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+    update_interval: 60s
+  - platform: dallas
+    index: 0
+    name: "${friendly_name} - Temperatura"
+    device_class: "temperature"
+    state_class: "measurement"
+
+binary_sensor:
+  - platform: gpio
+    pin: GPIO13
+    name: "${friendly_name} - Ruch"
+    device_class: motion
+
+output:
+  - platform: ledc
+    pin: GPIO14
+    channel: 2
+    id: irled
+
+light:
+  - platform: monochromatic
+    output: irled
+    name: "${friendly_name} - IR"
+    on_turn_on:
+      - lambda: |-
+          if(millis() > 5000) { // prevents from running on boot when camera is not fully initialized
+            id(main_cam).set_special_effect(esp32_camera::ESP32_SPECIAL_EFFECT_GRAYSCALE);
+            id(main_cam).set_agc_mode(esp32_camera::ESP32_GC_MODE_MANU);
+            id(main_cam).set_agc_value(30);
+            id(main_cam).update_camera_parameters();
+          }
+    on_turn_off:
+      - lambda: |-
+           if(millis() > 5000) { // prevents from running on boot when camera is not fully initialized
+             id(main_cam).set_special_effect(esp32_camera::ESP32_SPECIAL_EFFECT_NONE);
+             id(main_cam).set_agc_mode(esp32_camera::ESP32_GC_MODE_AUTO);
+             id(main_cam).set_agc_value(0);
+             id(main_cam).update_camera_parameters();
+           }
+
+esp32_camera:
+  id: "main_cam"
+  name: "${friendly_name} - Kamera"
+  external_clock:
+    pin: GPIO0
+    frequency: 20MHz
+  i2c_pins:
+    sda: GPIO26
+    scl: GPIO27
+  data_pins: [GPIO5, GPIO18, GPIO19, GPIO21, GPIO36, GPIO39, GPIO34, GPIO35]
+  vsync_pin: GPIO25
+  href_pin: GPIO23
+  pixel_clock_pin: GPIO22
+  power_down_pin: GPIO32
+  
+  resolution: 800x600
+  max_framerate: 5 fps
+  idle_framerate: 0.1 fps
+  jpeg_quality: 10
+  brightness: 0
+  contrast: 0
+  saturation: 0
+  special_effect: none
+  aec_mode: auto
+  aec2: false
+  ae_level: 0
+  aec_value: 300
+  agc_mode: auto
+  agc_gain_ceiling: 2x
+  agc_value: 0
+  wb_mode: auto
+  
+esp32_camera_web_server:
+  - port: 8888
+    mode: stream

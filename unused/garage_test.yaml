@@ -1,0 +1,49 @@
+substitutions:
+  static_ip: 10.10.0.114
+  friendly_name: "Garaż"
+
+esphome:
+  name: garage-test
+  platform: ESP8266
+  board: d1_mini
+  esp8266_restore_from_flash: false
+
+<<: !include common/base.yaml
+<<: !include common/main.yaml
+
+i2c:
+  sda: D2
+  scl: D1
+  scan: true
+
+pcf8574:
+  - id: pcf8574_hub
+    address: 0x20
+    pcf8575: false
+
+switch:
+  - platform: gpio
+    pin:
+      pcf8574: pcf8574_hub
+      number: 0
+      mode: OUTPUT
+      inverted: false
+    name: garage_switch
+    id: garage_switch
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      pcf8574: pcf8574_hub
+      number: 1
+      mode: INPUT
+      inverted: true
+    id: reed_switch
+    name: reed_switch
+    filters:
+      - delayed_on: 100ms
+      - delayed_off: 100ms
+    on_press:
+      - switch.turn_on: garage_switch
+    on_release:
+      - switch.turn_off: garage_switch

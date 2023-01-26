@@ -1,0 +1,191 @@
+substitutions:
+  static_ip: 10.10.0.114
+  friendly_name: "Garaż"
+
+esphome:
+  name: garage
+  platform: ESP32
+  board: esp32doit-devkit-v1
+  
+  includes:
+    - ble_data_component.h
+
+<<: !include common/base.yaml
+<<: !include common/main.yaml
+
+esp32_ble:
+
+esp32_ble_server:
+  manufacturer: "ESPHome"
+  model: "Garage"
+  id: "gatt_server"
+
+globals:
+  - id: performing_last_movement
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+switch:
+  - platform: gpio
+    pin:
+      number: GPIO19
+      inverted: true
+    id: garage_switch
+    restore_mode: ALWAYS_OFF
+    on_turn_on:
+    - delay: 500ms
+    - switch.turn_off: garage_switch
+
+custom_component:
+  - id: ble_data
+    lambda: |-
+      auto ble_data_component = new BLEDataComponent(id(gatt_server), id(garage_door));
+      App.register_component(ble_data_component);
+      return {ble_data_component};
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO5
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "${friendly_name} - Closed Reed Switch"
+    id: closed_endstop
+    filters:
+      - delayed_on: 1000ms
+      - delayed_off: 1000ms
+    on_press:
+      - lambda: !lambda |-
+          static_cast<BLEDataComponent*>(id(ble_data).get_component(0))->set_is_close(true);
+    on_release:
+      - lambda: !lambda |-
+          static_cast<BLEDataComponent*>(id(ble_data).get_component(0))->set_is_close(false);
+
+  - platform: gpio
+    pin:
+      number: GPIO18
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "${friendly_name} - Open Reed Switch"
+    id: open_endstop
+    filters:
+      - delayed_on: 1000ms
+      - delayed_off: 1000ms
+    on_press:
+      - lambda: !lambda |-
+          static_cast<BLEDataComponent*>(id(ble_data).get_component(0))->set_is_open(true);
+    on_release:
+      - lambda: !lambda |-
+          static_cast<BLEDataComponent*>(id(ble_data).get_component(0))->set_is_open(false);
+
+cover:
+  - platform: template
+    name: "${friendly_name} - Door"
+    id: garage_door
+    device_class: garage
+    assumed_state: true
+    lambda: !lambda |-
+      if (id(closed_endstop).state) //Door at closed endstop
+      {
+        if (id(garage_door).current_operation ==  esphome::cover::COVER_OPERATION_OPENING) //We should be opening
+        {
+          if (!id(performing_last_movement)) //Make sure we don't trigger this logic twice otherwise it will do unwanted things
+          {
+            delay(1000); //Wait for door to stop in case reed is triggered too early
+            id(garage_switch).turn_on(); //Press button again
+            id(performing_last_movement) = true; //Set flag to indicate we madeknow where the door is
+          }
+        }
+        else if (id(garage_door).current_operation ==  esphome::cover::COVER_OPERATION_CLOSING)
+        {
+          //We should be closing, so all is good
+          id(performing_last_movement) = false;
+          id(garage_door).current_operation =  esphome::cover::COVER_OPERATION_IDLE;
+          id(garage_door).position = COVER_CLOSED;
+          id(garage_door).publish_state();
+          return COVER_CLOSED;
+        }
+        else
+        {
+          //No operation in progress, just send state
+          id(performing_last_movement) = false;
+          if (!(id(garage_door).position == esphome::cover::COVER_CLOSED))
+          {
+            id(garage_door).position = COVER_CLOSED;
+            id(garage_door).publish_state();
+            return COVER_CLOSED;
+          }
+        }
+      }
+      else if (id(open_endstop).state) //Door at open endstop
+      {
+        if (id(garage_door).current_operation ==  esphome::cover::COVER_OPERATION_CLOSING) //We should be closing
+        {
+          if (!id(performing_last_movement))  //Make sure we don't trigger this logic twice otherwise it will do unwanted things
+          {
+            delay(1000);  //Wait for door to stop in case reed is triggered too early
+            id(garage_switch).turn_on(); //Press button again
+            id(performing_last_movement) = true; //Set flag to indicate we madeknow where the door is
+          }
+        }
+        else if (id(garage_door).current_operation ==  esphome::cover::COVER_OPERATION_OPENING)
+        {
+          //We should be opening, so all is good
+          id(performing_last_movement) = false;
+          id(garage_door).current_operation =  esphome::cover::COVER_OPERATION_IDLE;
+          id(garage_door).position = COVER_OPEN;
+          id(garage_door).publish_state();
+          return COVER_OPEN;
+        }
+        else //Door not at any endstop
+        {
+          //No operation in progress, just send state
+          id(performing_last_movement) = false;
+          if (id(garage_door).position != esphome::cover::COVER_OPEN)
+          {
+            id(garage_door).position = COVER_OPEN;
+            id(garage_door).publish_state();
+            return COVER_OPEN;
+          }
+        }
+      }
+      else
+      {
+        //The door is halfway open, so set it to OPEN
+        if (id(garage_door).position != esphome::cover::COVER_OPEN)
+          {
+            id(garage_door).position = COVER_OPEN;
+            id(garage_door).publish_state();
+            return COVER_OPEN;
+          }
+      }
+      return {};
+
+    open_action: 
+      - lambda: !lambda |-
+          id(garage_door).current_operation =  esphome::cover::COVER_OPERATION_OPENING;
+          if (!id(open_endstop).state) {
+            id(garage_switch).turn_on();
+            if (id(closed_endstop).state) {
+              id(performing_last_movement) = true; //Set flag to indicate we know where the door is
+            }
+          }
+    close_action:
+      - lambda: !lambda |-
+          id(garage_door).current_operation =  esphome::cover::COVER_OPERATION_CLOSING;
+          if (!id(closed_endstop).state) {
+            id(garage_switch).turn_on();
+            if (id(open_endstop).state) {
+              id(performing_last_movement) = true; //Set flag to indicate we know where the door is
+            }
+          }
+    stop_action:
+      - lambda: !lambda |-
+          if (id(garage_door).current_operation ==  esphome::cover::COVER_OPERATION_CLOSING || id(garage_door).current_operation ==  esphome::cover::COVER_OPERATION_OPENING )
+          {
+            id(garage_door).current_operation =  esphome::cover::COVER_OPERATION_IDLE;
+            //Stop the door if it is moving
+            id(performing_last_movement) = false;
+            id(garage_switch).turn_on();
+          }
