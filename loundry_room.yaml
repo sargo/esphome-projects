@@ -8,6 +8,7 @@ esphome:
   board: d1_mini
 
 <<: !include common/base.yaml
+<<: !include common/log_8266.yaml
 <<: !include common/main.yaml
 
 time:

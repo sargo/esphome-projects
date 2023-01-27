@@ -18,6 +18,7 @@ esphome:
             loop: true
 
 <<: !include common/base.yaml
+<<: !include common/log_8266.yaml
 
 web_server:
   port: 80

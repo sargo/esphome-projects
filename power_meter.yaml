@@ -9,6 +9,7 @@ esphome:
   esp8266_restore_from_flash: true
 
 <<: !include common/base.yaml
+<<: !include common/log_8266.yaml
 <<: !include common/main.yaml
 
 globals:

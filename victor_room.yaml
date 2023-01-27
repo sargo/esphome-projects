@@ -8,6 +8,7 @@ esphome:
   board: nodemcuv2
 
 <<: !include common/base.yaml
+<<: !include common/log_8266.yaml
 <<: !include common/main.yaml
 
 i2c:

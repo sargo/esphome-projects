@@ -2,7 +2,13 @@ substitutions:
   static_ip: 10.10.0.111
   friendly_name: "Sypialnia"
 
+esphome:
+  name: bedroom
+  platform: ESP8266
+  board: d1_mini
+
 <<: !include common/base.yaml
+<<: !include common/log_8266.yaml
 
 api:
   reboot_timeout: 12h

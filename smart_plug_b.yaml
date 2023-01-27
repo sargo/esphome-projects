@@ -9,6 +9,7 @@ esphome:
   board_flash_mode: dout
 
 <<: !include common/base.yaml
+<<: !include common/log_8266.yaml
 <<: !include common/main.yaml
 
 status_led:

@@ -13,6 +13,7 @@ esphome:
         id(main_display).turn_off();
 
 <<: !include common/base.yaml
+<<: !include common/log_32.yaml
 
 deep_sleep:
   id: main_deep_sleep
@@ -87,7 +88,7 @@ display:
       #- id: page_pressure
       #  lambda: it.printf(0, 6, id(main_font), "Press %.0f hPa", id(pressure).state);
       - id: page_battery
-        lambda: it.printf(0, 6, id(main_font), "Battery %.2f V", id(battery).state);
+        lambda: it.printf(0, 6, id(main_font), "Battery %.0f %%", id(battery).state);
 
 font:
   - file: "fonts/Lato-Regular.ttf"
@@ -119,12 +120,18 @@ sensor:
     pin: GPIO32
     attenuation: 6db
     update_interval: 5s
-    accuracy_decimals: 2
+    accuracy_decimals: 0
+    unit_of_measurement: '%'
+    icon: 'mdi:battery-charging'
     filters:
       - multiply: 3.172
       - sliding_window_moving_average:
           window_size: 12
           send_every: 12
+      - calibrate_linear:
+        - 3.58 -> 0.0
+        - 4.17 -> 100.0
+      - lambda: return std::min(std::max(0.0f, x), 100.0f);
 
   - platform: rotary_encoder
     id: rotary
@@ -151,5 +158,4 @@ sensor:
     #pressure:
     #  id: "pressure"
     #  name: "${friendly_name} - Ciśnienie"
-    #  oversampling: 1x
     update_interval: 60s

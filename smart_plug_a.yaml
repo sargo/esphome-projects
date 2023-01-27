@@ -17,6 +17,7 @@ preferences:
   flash_write_interval: 1min
 
 <<: !include common/base.yaml
+<<: !include common/log_8266.yaml
 <<: !include common/main.yaml
 
 uart:

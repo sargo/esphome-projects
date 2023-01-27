@@ -8,6 +8,7 @@ esphome:
   board: esp32cam
 
 <<: !include common/base.yaml
+<<: !include common/log_32.yaml
 <<: !include common/main.yaml
 
 dallas:
