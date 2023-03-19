@@ -24,7 +24,7 @@ wifi:
 ota:
   password: !secret ota_password
 
-<<: !include common/log_debug.yaml
+<<: !include common/log_32.yaml
 
 api:
   reboot_timeout: 24h
