@@ -1,0 +1,34 @@
+substitutions:
+  static_ip: 10.10.0.104
+  friendly_name: "Lampa LED"
+
+esphome:
+  name: led-lamp
+  platform: ESP8266
+  board: esp01
+  esp8266_restore_from_flash: true
+
+<<: !include common/base.yaml
+<<: !include common/main.yaml
+<<: !include common/log_8266.yaml
+
+sensor:
+  - platform: uptime
+    name: "${friendly_name} - Czas pracy"
+    id: uptime_sensor
+    update_interval: 60s
+
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+    update_interval: 60s
+
+light:
+  - platform: monochromatic
+    name: "${friendly_name} - LED"
+    output: led_output
+    restore_mode: RESTORE_DEFAULT_ON
+
+output:
+  - platform: esp8266_pwm
+    id: led_output
+    pin: GPIO2
