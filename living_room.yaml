@@ -1,0 +1,60 @@
+substitutions:
+  static_ip: 10.10.0.123
+  friendly_name: "Salon"
+
+esphome:
+  name: living-room
+  platform: ESP8266
+  board: d1_mini
+
+<<: !include common/base.yaml
+<<: !include common/log_8266.yaml
+<<: !include common/main.yaml
+
+i2c:
+  sda: D1
+  scl: D2
+  scan: false
+
+uart:
+  rx_pin: D3
+  baud_rate: 9600
+
+sensor:
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+
+  - platform: pm1006
+    pm_2_5:
+      name: "${friendly_name} - PM2.5"
+
+  - platform: bmp280
+    address: 0x77
+    temperature:
+      id: "bmp280_temperature"
+      internal: true
+    pressure:
+      id: "pressure"
+      name: "${friendly_name} - Ciśnienie"
+    update_interval: 60s
+
+  - platform: aht10
+    address: 0x38
+    temperature:
+      id: "aht20_temperature"
+      internal: true
+    humidity:
+      id: "humidity"
+      name: "${friendly_name} - Wilgotność"
+    update_interval: 60s
+
+  - platform: template
+    name: "${friendly_name} - Temperatura"
+    id: temperature
+    lambda: |-
+      return (id(bmp280_temperature).state + id(aht20_temperature).state) / 2;
+    unit_of_measurement: "°C"
+    device_class: "temperature"
+    state_class: "measurement"
+    accuracy_decimals: 2
+    update_interval: 60s
