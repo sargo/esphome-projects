@@ -1,5 +1,5 @@
 substitutions:
-  static_ip: 10.10.0.116
+  static_ip: 10.10.0.114
   friendly_name: "Mini"
 
 esphome:

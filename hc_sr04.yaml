@@ -1,0 +1,32 @@
+substitutions:
+  static_ip: 10.10.0.114
+  friendly_name: "HC-SR04 Test"
+
+esphome:
+  name: hcsr04-test
+  platform: ESP8266
+  board: d1_mini
+
+<<: !include common/base.yaml
+<<: !include common/log_debug.yaml
+
+web_server:
+  port: 80
+
+
+sensor:
+  - platform: uptime
+    name: "${friendly_name} - Czas pracy"
+    id: uptime_sensor
+    update_interval: 60s
+
+  - platform: wifi_signal
+    name: "${friendly_name} - WiFi"
+    update_interval: 60s
+
+  - platform: ultrasonic
+    name: "${friendly_name} - Dystans"
+    trigger_pin: D1
+    echo_pin: D2
+    timeout: 4m
+    update_interval: 1s

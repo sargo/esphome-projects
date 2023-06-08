@@ -57,6 +57,11 @@ mqtt:
   will_message:
     topic: remote/availability
     payload: ""
+  on_connect:
+    - component.update: main_display
+  on_disconnect:
+    - display.page.show: page_play_rmf24
+    - component.update: main_display
 
 i2c:
   sda: GPIO23
@@ -112,6 +117,8 @@ display:
         lambda: |-
           if (esp_sleep_get_wakeup_cause() == 4) {
             id(main_display).turn_off();
+          } else if (!id(mqtt_client)->is_connected()) {
+            it.print(0, 6, id(main_font), "Connecting...");
           } else {
             it.print(0, 6, id(main_font), "Play RMF24");
           }

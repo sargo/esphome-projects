@@ -52,7 +52,7 @@ sensor:
     name: "${friendly_name} - Temperatura"
     id: temperature
     lambda: |-
-      return (id(bmp280_temperature).state + id(aht20_temperature).state) / 2;
+      return ((id(bmp280_temperature).state + id(aht20_temperature).state) / 2) - 2.75;
     unit_of_measurement: "°C"
     device_class: "temperature"
     state_class: "measurement"
