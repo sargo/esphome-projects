@@ -41,10 +41,13 @@ sensor:
     temperature:
       id: "temperature"
       name: "${friendly_name} - Temperatura"
+      filters:
+        - offset: -0.2
 
     humidity:
       id: "humidity"
       name: "${friendly_name} - Wilgotność"
+    
     update_interval: 60s
 
   - platform: adc
@@ -133,24 +136,22 @@ select:
     optimistic: true
     restore_value: true
     options:
-      - "3"
-      - "2"
-      - "1"
-    initial_option: "2"
-    on_value:
-      then:
-        - lambda: !lambda |-
-            if (x == "3") {
-              id(spray_delay) = 500;
-            } else if (x == "2") {
-              id(spray_delay) = 350;
-            } else {
-              id(spray_delay) = 200;
-            }
-            ESP_LOGW("spray level", "Spray delay %dms", id(spray_delay));
+      - "double"
+      - "normal"
+    initial_option: "normal"
 
 script:
   - id: spray_script
+    mode: single
+    then:
+      - script.execute: spray_once_script
+      - delay: 3s
+      - lambda: !lambda |-
+          if (id(spray_level).state == "double") {
+            id(spray_once_script).execute();
+          }
+          
+  - id: spray_once_script
     mode: single
     then:
       - lambda: |-
@@ -162,11 +163,11 @@ script:
       - fan.turn_on:
           id: spray_motor
           direction: reverse
-      - delay: !lambda return (id(spray_delay));
+      - delay: 500ms
       - fan.turn_on:
           id: spray_motor
           direction: forward
-      - delay: !lambda return (id(spray_delay));
+      - delay: 500ms
       - fan.turn_off: spray_motor
 
 button:
