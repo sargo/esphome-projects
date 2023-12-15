@@ -49,6 +49,8 @@ deep_sleep:
 mqtt:
   id: mqtt_client
   broker: 10.10.0.103
+  username: ha
+  password: !secret ota_password
   discovery: true
   topic_prefix: remote
   birth_message:
