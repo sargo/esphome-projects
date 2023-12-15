@@ -1,0 +1,128 @@
+substitutions:
+  static_ip: 10.10.0.127
+  friendly_name: "BT/RF Bridge"
+
+esphome:
+  name: bt-rf-bridge
+  platform: ESP32
+  board: lolin32_lite
+
+<<: !include common/base.yaml
+<<: !include common/log_32.yaml
+<<: !include common/main.yaml
+
+remote_receiver:
+  pin: GPIO27
+  tolerance: 60%
+  filter: 250us
+  idle: 4ms
+  buffer_size: 2kb
+#  dump:
+#   - rc_switch
+
+binary_sensor:
+  - platform: remote_receiver
+    name: "${friendly_name} - Przycisk A-1"
+    rc_switch_raw:
+      protocol: 1
+      code: '110011100111110001110010'
+    filters:
+      - delayed_off: 100ms
+  - platform: remote_receiver
+    name: "${friendly_name} - Przycisk A-2"
+    rc_switch_raw:
+      protocol: 1
+      code: '110011100111110001110100'
+    filters:
+      - delayed_off: 100ms
+  - platform: remote_receiver
+    name: "${friendly_name} - Przycisk A-3"
+    rc_switch_raw:
+      protocol: 1
+      code: '110011100111110001110001'
+    filters:
+      - delayed_off: 100ms
+  - platform: remote_receiver
+    name: "${friendly_name} - Przycisk B-1"
+    rc_switch_raw:
+      protocol: 1
+      code: '101111101110010100000010'
+    filters:
+      - delayed_off: 100ms
+  - platform: remote_receiver
+    name: "${friendly_name} - Przycisk B-2"
+    rc_switch_raw:
+      protocol: 1
+      code: '101111101110010100000100'
+    filters:
+      - delayed_off: 100ms
+  - platform: remote_receiver
+    name: "${friendly_name} - Przycisk B-3"
+    rc_switch_raw:
+      protocol: 1
+      code: '101111101110010100000001'
+    filters:
+      - delayed_off: 100ms
+  - platform: remote_receiver
+    name: "${friendly_name} - Przycisk C-1"
+    rc_switch_raw:
+      protocol: 1
+      code: '111111110101111101110001'
+    filters:
+      - delayed_off: 100ms
+  - platform: remote_receiver
+    name: "${friendly_name} - Przycisk C-2"
+    rc_switch_raw:
+      protocol: 1
+      code: '111111011111000010100100'
+    filters:
+      - delayed_off: 100ms
+  - platform: remote_receiver
+    name: "${friendly_name} - Przycisk C-3"
+    rc_switch_raw:
+      protocol: 1
+      code: '111111110101111101110010'
+    filters:
+      - delayed_off: 100ms
+  - platform: remote_receiver
+    name: "${friendly_name} - Przycisk C-4"
+    rc_switch_raw:
+      protocol: 1
+      code: '111111110101111101111000'
+    filters:
+      - delayed_off: 100ms
+#  - platform: remote_receiver
+#    name: "${friendly_name} - Przycisk D-1"
+#    rc_switch_raw:
+#      protocol: 1
+#      code: '111111110101111101110001'
+#    filters:
+#      - delayed_off: 100ms
+#  - platform: remote_receiver
+#    name: "${friendly_name} - Przycisk D-2"
+#    rc_switch_raw:
+#      protocol: 1
+#      code: ''
+#    filters:
+#      - delayed_off: 100ms
+#  - platform: remote_receiver
+#    name: "${friendly_name} - Przycisk D-3"
+#    rc_switch_raw:
+#      protocol: 1
+#      code: ''
+#    filters:
+#      - delayed_off: 100ms
+#  - platform: remote_receiver
+#    name: "${friendly_name} - Przycisk D-4"
+#    rc_switch_raw:
+#      protocol: 1
+#      code: ''
+#    filters:
+#      - delayed_off: 100ms
+
+#esp32_ble_tracker:
+#  scan_parameters:
+#    active: true
+#
+#bluetooth_proxy:
+#  active: true
