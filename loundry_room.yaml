@@ -42,7 +42,7 @@ switch:
     name: "${friendly_name} - Alarm uzbrojony"
     id: armed_switch
     icon: mdi:lock-alert
-    restore_state: false
+    restore_mode: DISABLED
     turn_on_action:
       - globals.set:
           id: armed
@@ -80,6 +80,9 @@ binary_sensor:
         then:
           - switch.turn_on: buzzer
           - logger.log: 'buzzer ON'
+          - delay: 5s
+          - switch.turn_off: buzzer
+          - logger.log: 'buzzer OFF'
 
 sensor:
   - platform: wifi_signal
